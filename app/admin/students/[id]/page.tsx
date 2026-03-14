@@ -34,6 +34,7 @@ interface Student {
   examStartedAt: string | null;
   examSubmittedAt: string | null;
   examCompleted: boolean;
+  suspendedReason: string | null;
 }
 
 export default function GradeStudentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -110,6 +111,17 @@ export default function GradeStudentPage({ params }: { params: Promise<{ id: str
     <div className="min-h-screen bg-gray-50">
       <AdminNav />
       <main className="max-w-4xl mx-auto px-4 py-8">
+        {/* Suspension alert */}
+        {student?.suspendedReason && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 flex items-start gap-3">
+            <span className="text-2xl shrink-0">🚫</span>
+            <div>
+              <p className="font-semibold text-red-700 text-sm">Exam Suspended</p>
+              <p className="text-red-600 text-sm mt-0.5">{student.suspendedReason}</p>
+            </div>
+          </div>
+        )}
+
         {/* Student header */}
         <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
@@ -117,8 +129,11 @@ export default function GradeStudentPage({ params }: { params: Promise<{ id: str
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-gray-800">{student?.name}</h1>
                 <Badge variant="outline" className="font-mono">{student?.studentId}</Badge>
-                {student?.examCompleted && (
-                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">Submitted</Badge>
+                {student?.examCompleted && !student?.suspendedReason && (
+                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">✓ Submitted</Badge>
+                )}
+                {student?.suspendedReason && (
+                  <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-0">🚫 Suspended</Badge>
                 )}
               </div>
               <div className="text-sm text-gray-500 mt-1 space-x-4">

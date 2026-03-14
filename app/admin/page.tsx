@@ -31,6 +31,7 @@ interface Student {
   examCompleted: boolean;
   examStartedAt: string | null;
   examSubmittedAt: string | null;
+  suspendedReason: string | null;
   createdAt: string;
 }
 
@@ -90,8 +91,12 @@ export default function AdminDashboard() {
   }
 
   const examStatus = (s: Student) => {
-    if (s.examCompleted) return <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">Submitted</Badge>;
-    if (s.examStartedAt) return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-0">In Progress</Badge>;
+    if (s.examCompleted && s.suspendedReason)
+      return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-0">🚫 Suspended</Badge>;
+    if (s.examCompleted)
+      return <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">✓ Submitted</Badge>;
+    if (s.examStartedAt)
+      return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-0">⏳ In Progress</Badge>;
     return <Badge variant="outline" className="text-gray-500">Not Started</Badge>;
   };
 
@@ -163,6 +168,7 @@ export default function AdminDashboard() {
                   <TableHead>Student ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Suspension Reason</TableHead>
                   <TableHead>Started</TableHead>
                   <TableHead>Submitted</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -170,10 +176,20 @@ export default function AdminDashboard() {
               </TableHeader>
               <TableBody>
                 {students.map((s) => (
-                  <TableRow key={s._id}>
+                  <TableRow
+                    key={s._id}
+                    className={s.suspendedReason ? "bg-red-50/40" : ""}
+                  >
                     <TableCell className="font-mono font-medium">{s.studentId}</TableCell>
                     <TableCell>{s.name}</TableCell>
                     <TableCell>{examStatus(s)}</TableCell>
+                    <TableCell className="text-sm max-w-xs">
+                      {s.suspendedReason ? (
+                        <span className="text-red-600 text-xs">{s.suspendedReason}</span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-gray-500">
                       {s.examStartedAt ? new Date(s.examStartedAt).toLocaleString() : "—"}
                     </TableCell>
@@ -188,7 +204,7 @@ export default function AdminDashboard() {
                             variant="outline"
                             onClick={() => router.push(`/admin/students/${s._id}`)}
                           >
-                            Grade
+                            {s.suspendedReason ? "Review" : "Grade"}
                           </Button>
                         )}
                         <Button

@@ -21,7 +21,12 @@ export default function LoginPage() {
       const res = await api.post("/auth/student/login", { studentId, password });
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("student", JSON.stringify(res.data.student));
-      router.push("/exam");
+      // Completed students go straight to the grades/results page
+      if (res.data.student.examCompleted) {
+        router.push("/exam/complete");
+      } else {
+        router.push("/exam");
+      }
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -68,11 +73,11 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Logging in…" : "Login & Start Exam"}
+              {loading ? "Logging in…" : "Login"}
             </Button>
           </form>
           <p className="text-xs text-center text-gray-400 mt-4">
-            Once you login, a 70-minute timer will start. You cannot re-login after the exam ends.
+            Once you start the exam, a 70-minute timer begins. After completion, you can log in again to view your grades.
           </p>
         </CardContent>
       </Card>
