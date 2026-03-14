@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 import api from "@/lib/api";
 import AdminNav from "@/components/AdminNav";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ export default function AdminDashboard() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ studentId: "", name: "", password: "" });
   const [creating, setCreating] = useState(false);
+  const [showStudentPassword, setShowStudentPassword] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -109,7 +111,7 @@ export default function AdminDashboard() {
             <h1 className="text-2xl font-bold text-gray-800">Students</h1>
             <p className="text-sm text-gray-500">{students.length} registered student{students.length !== 1 ? "s" : ""}</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setShowStudentPassword(false); }}>
             <DialogTrigger render={<Button />}>+ Add Student</DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -136,14 +138,26 @@ export default function AdminDashboard() {
                 </div>
                 <div className="space-y-1">
                   <Label>Password</Label>
-                  <Input
-                    type="password"
-                    placeholder="Set a password"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    required
-                    minLength={6}
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showStudentPassword ? "text" : "password"}
+                      placeholder="Set a password"
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      required
+                      minLength={6}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowStudentPassword((v) => !v)}
+                      className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600"
+                      aria-label={showStudentPassword ? "Hide password" : "Show password"}
+                    >
+                      {showStudentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={creating}>
                   {creating ? "Creating…" : "Create Student"}

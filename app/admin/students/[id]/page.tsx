@@ -37,14 +37,37 @@ interface Student {
   suspendedReason: string | null;
 }
 
+interface ExamLogEntry {
+  _id: string;
+  event: string;
+  detail: string | null;
+  timestamp: string;
+}
+
+const EVENT_META: Record<string, { icon: string; label: string; color: string }> = {
+  "exam-started":          { icon: "🟢", label: "Exam Started",           color: "bg-green-50 border-green-200 text-green-800" },
+  "exam-submitted":        { icon: "✅", label: "Exam Submitted",          color: "bg-green-50 border-green-200 text-green-800" },
+  "exam-suspended":        { icon: "🚫", label: "Exam Suspended",          color: "bg-red-50 border-red-300 text-red-800" },
+  "tab-switch":            { icon: "🖥️", label: "Tab / Window Switch",     color: "bg-orange-50 border-orange-200 text-orange-800" },
+  "paste-attempt":         { icon: "📋", label: "Paste Attempt",           color: "bg-yellow-50 border-yellow-200 text-yellow-800" },
+  "copy-attempt":          { icon: "📋", label: "Copy Attempt",            color: "bg-yellow-50 border-yellow-200 text-yellow-800" },
+  "cut-attempt":           { icon: "✂️",  label: "Cut Attempt",            color: "bg-yellow-50 border-yellow-200 text-yellow-800" },
+  "screenshot-attempt":    { icon: "📸", label: "Screenshot Attempt",      color: "bg-red-50 border-red-300 text-red-800" },
+  "context-menu-attempt":  { icon: "🖱️", label: "Right-Click Attempt",    color: "bg-gray-50 border-gray-200 text-gray-700" },
+  "offline":               { icon: "📵", label: "Internet Disconnected",   color: "bg-orange-50 border-orange-200 text-orange-800" },
+  "online":                { icon: "📶", label: "Internet Reconnected",    color: "bg-blue-50 border-blue-200 text-blue-800" },
+};
+
 export default function GradeStudentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const [student, setStudent] = useState<Student | null>(null);
   const [answers, setAnswers] = useState<AnswerEntry[]>([]);
   const [grades, setGrades] = useState<Record<string, { marks: string; feedback: string }>>({});
+  const [logs, setLogs] = useState<ExamLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [logsExpanded, setLogsExpanded] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -54,12 +77,16 @@ export default function GradeStudentPage({ params }: { params: Promise<{ id: str
 
   async function fetchData() {
     try {
-      const res = await api.get(`/admin/students/${id}/answers`);
-      setStudent(res.data.student);
-      setAnswers(res.data.answers);
+      const [answersRes, logsRes] = await Promise.all([
+        api.get(`/admin/students/${id}/answers`),
+        api.get(`/admin/students/${id}/logs`),
+      ]);
+      setStudent(answersRes.data.student);
+      setAnswers(answersRes.data.answers);
+      setLogs(logsRes.data);
       // Pre-fill existing grades
       const existing: Record<string, { marks: string; feedback: string }> = {};
-      res.data.answers.forEach((a: AnswerEntry) => {
+      answersRes.data.answers.forEach((a: AnswerEntry) => {
         existing[a.question.id] = {
           marks: a.marksAwarded !== null ? String(a.marksAwarded) : "",
           feedback: a.feedback || "",
@@ -152,6 +179,69 @@ export default function GradeStudentPage({ params }: { params: Promise<{ id: str
               <p className="text-xs text-gray-400">Total Marks</p>
             </div>
           </div>
+        </div>
+
+        {/* ── Exam Activity Log ──────────────────────────────────────────── */}
+        <div className="bg-white rounded-xl shadow-sm border mb-6 overflow-hidden">
+          {/* Header row with summary counts */}
+          <button
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors text-left"
+            onClick={() => setLogsExpanded((v) => !v)}
+          >
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-gray-800 text-sm">📋 Exam Activity Log</span>
+              <span className="text-xs text-gray-400">{logs.length} event{logs.length !== 1 ? "s" : ""}</span>
+              {/* Quick-glance violation counts */}
+              {(() => {
+                const tabCount = logs.filter(l => l.event === "tab-switch").length;
+                const pasteCount = logs.filter(l => l.event === "paste-attempt").length;
+                const copyCount = logs.filter(l => l.event === "copy-attempt").length;
+                const cutCount = logs.filter(l => l.event === "cut-attempt").length;
+                const ssCount = logs.filter(l => l.event === "screenshot-attempt").length;
+                const ctxCount = logs.filter(l => l.event === "context-menu-attempt").length;
+                return (
+                  <div className="flex flex-wrap gap-1.5">
+                    {tabCount > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">🖥️ {tabCount} tab switch{tabCount > 1 ? "es" : ""}</span>}
+                    {pasteCount > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200">📋 {pasteCount} paste</span>}
+                    {(copyCount + cutCount) > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200">📋 {copyCount + cutCount} copy/cut</span>}
+                    {ssCount > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">📸 {ssCount} screenshot</span>}
+                    {ctxCount > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">🖱️ {ctxCount} right-click</span>}
+                  </div>
+                );
+              })()}
+            </div>
+            <span className="text-gray-400 text-xs">{logsExpanded ? "▲ collapse" : "▼ expand"}</span>
+          </button>
+
+          {logsExpanded && (
+            <div className="border-t divide-y max-h-[520px] overflow-y-auto">
+              {logs.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-8">No activity logged yet.</p>
+              ) : (
+                logs.map((log) => {
+                  const meta = EVENT_META[log.event] ?? {
+                    icon: "📌",
+                    label: log.event,
+                    color: "bg-gray-50 border-gray-200 text-gray-700",
+                  };
+                  return (
+                    <div key={log._id} className={`flex items-start gap-3 px-5 py-3 ${meta.color}`}>
+                      <span className="text-lg shrink-0 mt-0.5">{meta.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{meta.label}</p>
+                        {log.detail && (
+                          <p className="text-xs opacity-75 mt-0.5 break-words">{log.detail}</p>
+                        )}
+                      </div>
+                      <time className="text-xs opacity-60 shrink-0 mt-0.5">
+                        {new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                      </time>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
 
         {/* Answers */}

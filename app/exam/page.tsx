@@ -49,6 +49,13 @@ function clearDrafts() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Fire-and-forget exam activity logger — never blocks the UI
+// ─────────────────────────────────────────────────────────────────────────────
+function logExamEvent(event: string, detail?: string) {
+  api.post("/exam/log", { event, detail: detail ?? null }).catch(() => { /* silent */ });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function ExamPage() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("loading");
@@ -106,15 +113,23 @@ export default function ExamPage() {
     const block = (e: ClipboardEvent) => {
       e.preventDefault();
       toast.warning("Copy-paste is not allowed during the exam.");
+      logExamEvent("paste-attempt");
     };
-    const blockSilent = (e: ClipboardEvent) => e.preventDefault();
+    const blockCopy = (e: ClipboardEvent) => {
+      e.preventDefault();
+      logExamEvent("copy-attempt");
+    };
+    const blockCut = (e: ClipboardEvent) => {
+      e.preventDefault();
+      logExamEvent("cut-attempt");
+    };
     document.addEventListener("paste", block);
-    document.addEventListener("copy", blockSilent);
-    document.addEventListener("cut", blockSilent);
+    document.addEventListener("copy", blockCopy);
+    document.addEventListener("cut", blockCut);
     return () => {
       document.removeEventListener("paste", block);
-      document.removeEventListener("copy", blockSilent);
-      document.removeEventListener("cut", blockSilent);
+      document.removeEventListener("copy", blockCopy);
+      document.removeEventListener("cut", blockCut);
     };
   }, [phase]);
 
@@ -127,10 +142,12 @@ export default function ExamPage() {
       setIsOffline(true);
       setSavingStatus("offline");
       pendingFlush.current = true;
+      logExamEvent("offline");
     };
 
     const goOnline = async () => {
       setIsOffline(false);
+      logExamEvent("online");
       if (pendingFlush.current && phase === "exam") {
         pendingFlush.current = false;
         setSavingStatus("saving");
@@ -179,6 +196,13 @@ export default function ExamPage() {
       const count = tabWarningsRef.current;
       setTabWarnings(count);
 
+      logExamEvent(
+        "tab-switch",
+        count >= MAX_TAB_WARNINGS
+          ? `Violation ${count}/${MAX_TAB_WARNINGS} — exam suspended`
+          : `Violation ${count}/${MAX_TAB_WARNINGS}`
+      );
+
       if (count >= MAX_TAB_WARNINGS) return; // suspend handled in separate effect
 
       // Show the popup dialog for warnings 1 → MAX-1
@@ -207,12 +231,12 @@ export default function ExamPage() {
       setWarningDialogOpen(false);
       setIsSuspending(true);
       setPhase("submitting");
+      const suspendReason = `Exam suspended: tab/window switching detected ${MAX_TAB_WARNINGS} times`;
+      logExamEvent("exam-suspended", suspendReason);
       await flushAllAnswers(answersRef.current, questionsRef.current);
       clearDrafts();
       try {
-        await api.post("/exam/submit", {
-          reason: `Exam suspended: tab/window switching detected ${MAX_TAB_WARNINGS} times`,
-        });
+        await api.post("/exam/submit", { reason: suspendReason });
       } catch { /* navigate anyway */ }
       router.push("/exam/complete");
     };
@@ -240,21 +264,26 @@ export default function ExamPage() {
       e.preventDefault();
       e.stopPropagation();
 
+      logExamEvent("screenshot-attempt", `Key: ${e.key}`);
+
       submitted.current = true;
       setIsSuspending(true);
       setPhase("submitting");
+      const suspendReason = "Exam suspended: screenshot attempt detected";
+      logExamEvent("exam-suspended", suspendReason);
       await flushAllAnswers(answersRef.current, questionsRef.current);
       clearDrafts();
       try {
-        await api.post("/exam/submit", {
-          reason: "Exam suspended: screenshot attempt detected",
-        });
+        await api.post("/exam/submit", { reason: suspendReason });
       } catch { /* navigate anyway */ }
       router.push("/exam/complete");
     };
 
     // Listen on both keydown and keyup — PrintScreen fires on keyup in some browsers
-    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      logExamEvent("context-menu-attempt");
+    };
 
     document.addEventListener("keydown", handleScreenshotKey, true);
     document.addEventListener("keyup", handleScreenshotKey, true);
@@ -323,6 +352,7 @@ export default function ExamPage() {
       const res = await api.post("/exam/start");
       const elapsed = Date.now() - new Date(res.data.examStartedAt).getTime();
       setTimeRemainingMs(Math.max(0, 70 * 60 * 1000 - elapsed));
+      logExamEvent("exam-started");
       setPhase("exam");
     } catch {
       toast.error("Failed to start exam. Please try again.");
@@ -375,6 +405,11 @@ export default function ExamPage() {
     if (submitted.current) return;
     submitted.current = true;
     setPhase("submitting");
+
+    logExamEvent(
+      "exam-submitted",
+      reason ? `Suspended: ${reason}` : auto ? "Auto-submitted: time expired" : "Manual submission"
+    );
 
     await flushAllAnswers(answersRef.current, questionsRef.current);
     clearDrafts();
