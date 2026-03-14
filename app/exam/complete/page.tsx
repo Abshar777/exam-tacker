@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -232,61 +232,54 @@ export default function ExamCompletePage() {
               </CardContent>
             </Card>
 
-            {/* Per-question breakdown */}
+            {/* Per-question marks table */}
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">
-              Answer Breakdown
+              Marks Per Question
             </h2>
-            <div className="space-y-3">
-              {grades.results.map((entry, i) => (
-                <Card key={i} className="shadow-sm">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-bold text-gray-300">Q{i + 1}</span>
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {entry.question.type.replace("-", " ")}
-                      </Badge>
-                      <span className="ml-auto text-xs text-gray-400">
-                        {entry.question.maxMarks} marks
+            <Card className="shadow-sm overflow-hidden">
+              <div className="divide-y">
+                {grades.results.map((entry, i) => {
+                  const awarded = entry.marksAwarded ?? 0;
+                  const max = entry.question.maxMarks;
+                  const full = awarded === max;
+                  const zero = awarded === 0;
+                  return (
+                    <div key={i} className="flex items-center gap-4 px-5 py-3">
+                      {/* Question number */}
+                      <span className="w-8 text-sm font-bold text-gray-400 shrink-0">
+                        Q{i + 1}
                       </span>
-                    </div>
-                    <CardTitle className="text-sm font-medium text-gray-800 leading-relaxed">
-                      {entry.question.text}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 pt-0">
-                    {/* Student's answer */}
-                    <div className="bg-slate-50 rounded-lg p-3 text-sm border border-slate-100">
-                      <p className="text-xs font-semibold text-slate-400 mb-1">Your Answer</p>
-                      {entry.answer ? (
-                        <p className="text-gray-800 whitespace-pre-wrap">{entry.answer}</p>
-                      ) : (
-                        <p className="text-gray-400 italic">No answer provided</p>
-                      )}
-                    </div>
 
-                    {/* Score row */}
-                    <div className="flex items-center justify-between">
+                      {/* Mini progress bar */}
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-2 rounded-full transition-all duration-500 ${
+                            full ? "bg-green-500" : zero ? "bg-red-400" : "bg-yellow-400"
+                          }`}
+                          style={{ width: `${max > 0 ? (awarded / max) * 100 : 0}%` }}
+                        />
+                      </div>
+
+                      {/* Score */}
                       <span
-                        className={`text-sm font-bold ${
-                          entry.marksAwarded === entry.question.maxMarks
-                            ? "text-green-600"
-                            : entry.marksAwarded === 0
-                            ? "text-red-500"
-                            : "text-yellow-600"
+                        className={`text-sm font-semibold w-16 text-right shrink-0 ${
+                          full ? "text-green-600" : zero ? "text-red-500" : "text-yellow-600"
                         }`}
                       >
-                        {entry.marksAwarded ?? 0} / {entry.question.maxMarks} marks
+                        {awarded} / {max}
                       </span>
+
+                      {/* Feedback (optional) */}
                       {entry.feedback && (
-                        <p className="text-xs text-gray-500 italic text-right max-w-xs">
+                        <span className="text-xs text-gray-400 italic truncate max-w-[140px]" title={entry.feedback}>
                           💬 {entry.feedback}
-                        </p>
+                        </span>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            </Card>
           </>
         )}
       </div>
