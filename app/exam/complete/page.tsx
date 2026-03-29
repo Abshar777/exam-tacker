@@ -206,7 +206,7 @@ export default function ExamCompletePage() {
                     >
                       {percentage}%
                     </p>
-                    <Badge
+                    {/* <Badge
                       className={`mt-1 ${
                         percentage! >= 70
                           ? "bg-green-100 text-green-700 hover:bg-green-100 border-0"
@@ -214,7 +214,7 @@ export default function ExamCompletePage() {
                       }`}
                     >
                       {percentage! >= 70 ? "Pass" : "Fail"}
-                    </Badge>
+                    </Badge> */}
                   </div>
                 </div>
                 <div className="mt-4 h-2.5 bg-gray-100 rounded-full overflow-hidden">
